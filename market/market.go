@@ -71,3 +71,12 @@ func (m *Market) ProcessOrders(p *player.Player) []string {
 	}
 	return trades
 }
+
+func (m *Market) DisplayState() {
+	orders := m.GenerateOrders()
+	fmt.Printf("\nMarket Orders (%d):\n", len(orders))
+	for _, o := range orders {
+		fmt.Printf(" - %s %s @ $%.2f (Qty: %.2f)\n",
+			o.ID, o.OrderType, o.Price, o.Quantity)
+	}
+}
