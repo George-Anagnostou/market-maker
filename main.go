@@ -6,9 +6,74 @@ import (
 	"market-maker/player"
 	"strconv"
 
+	"github.com/common-nighthawk/go-figure"
 	"github.com/fatih/color"
 	"github.com/manifoldco/promptui"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
+
+func printTitle() {
+	myFigure := figure.NewColorFigure("Market Maker", "", "green", true)
+	myFigure.Print()
+}
+
+func printRoundStats(round int, p *player.Player, green func(a ...any) string) {
+	printer := message.NewPrinter(language.English)
+	fmt.Printf("\nRound %d:\n", round)
+	fmt.Printf("\tCash = %s, Inventory = %s\n",
+		green(printer.Sprintf("$%.2f", p.Cash)), printer.Sprintf("%.2f", p.Inventory))
+}
+
+func getBidPrice(red func(a ...any) string) (float64, error) {
+	bidPrompt := promptui.Prompt{
+		Label: "Enter bid price",
+		Validate: func(input string) error {
+			val, err := strconv.ParseFloat(input, 64)
+			if err != nil || val <= 0 {
+				return fmt.Errorf("invalid price")
+			}
+			return nil
+		},
+	}
+	bidStr, err := bidPrompt.Run()
+	if err != nil {
+		fmt.Println(red("Error reading bid"), err)
+		return 0.0, err
+	}
+	bid, _ := strconv.ParseFloat(bidStr, 64)
+	return bid, nil
+}
+
+func getAskPrice(bid float64, red func(a ...any) string) (float64, error) {
+	askPrompt := promptui.Prompt{
+		Label: "Enter ask price",
+		Validate: func(input string) error {
+			val, err := strconv.ParseFloat(input, 64)
+			if err != nil || val <= bid {
+				return fmt.Errorf("ask must be greater than bid")
+			}
+			return nil
+		},
+	}
+	askStr, err := askPrompt.Run()
+	if err != nil {
+		fmt.Println(red("Error reading ask"), err)
+		return 0.0, err
+	}
+	ask, _ := strconv.ParseFloat(askStr, 64)
+	return ask, nil
+}
+
+func printScore(avgPrice float64, p *player.Player, green func(a ...any) string) {
+	printer := message.NewPrinter(language.English)
+	score := p.Cash + float64(p.Inventory)*avgPrice
+	fmt.Printf("\nGame Over! Final Cash = %s, Inventory = %s, Score = %s\n",
+		green(printer.Sprintf("$%.2f", p.Cash)),
+		printer.Sprintf("%.2f", p.Inventory),
+		green(printer.Sprintf("$%.2f", score)),
+	)
+}
 
 func main() {
 	p := player.NewPlayer()
@@ -18,45 +83,24 @@ func main() {
 	red := color.New(color.FgRed).SprintFunc()
 	green := color.New(color.FgGreen).SprintFunc()
 
+	printTitle()
+
 	for round := 1; round <= rounds; round++ {
-		fmt.Printf("\nRound %d: Cash=%s, Inventory=%f\n",
-			round, green(fmt.Sprintf("$%.2f", p.Cash)), p.Inventory)
+		printRoundStats(round, p, green)
 
 		// Get bid price
-		bidPrompt := promptui.Prompt{
-			Label: "Enter bid price",
-			Validate: func(input string) error {
-				val, err := strconv.ParseFloat(input, 64)
-				if err != nil || val <= 0 {
-					return fmt.Errorf("invalid price")
-				}
-				return nil
-			},
-		}
-		bidStr, err := bidPrompt.Run()
+		bid, err := getBidPrice(red)
 		if err != nil {
-			fmt.Println(red("Error reading bid"), err)
+			fmt.Println("Failed to get bid")
 			return
 		}
-		bid, _ := strconv.ParseFloat(bidStr, 64)
 
 		// Get ask price
-		askPrompt := promptui.Prompt{
-			Label: "Enter ask price",
-			Validate: func(input string) error {
-				val, err := strconv.ParseFloat(input, 64)
-				if err != nil || val <= bid {
-					return fmt.Errorf("ask must be greater than bid")
-				}
-				return nil
-			},
-		}
-		askStr, err := askPrompt.Run()
+		ask, err := getAskPrice(bid, red)
 		if err != nil {
-			fmt.Println(red("Error reading ask"), err)
+			fmt.Println("Failed to get ask")
 			return
 		}
-		ask, _ := strconv.ParseFloat(askStr, 64)
 
 		p.SetSpread(bid, ask)
 		m.GenerateOrders()
@@ -71,16 +115,14 @@ func main() {
 			}
 		}
 
-		if p.Cash < 0 {
+		if p.CheckBankruptcy() {
 			fmt.Println(red("Bankrupt! Game Over."))
-			break
+			return
 		}
 
 		if round == rounds {
-			avgPrice := 100.0 // Placeholder average market price
-			score := p.Cash + float64(p.Inventory)*avgPrice
-			fmt.Printf("\nGame Over! Final Cash=%s, Inventory=%f, Score=%s\n",
-				green(fmt.Sprintf("$%.2f", p.Cash)), p.Inventory, green(fmt.Sprintf("$%.2f", score)))
+			avgPrice := 100.00 // placeholder value for now
+			printScore(avgPrice, p, green)
 		}
 	}
 }

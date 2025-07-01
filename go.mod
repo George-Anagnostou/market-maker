@@ -3,8 +3,10 @@ module market-maker
 go 1.24.1
 
 require (
+	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
 	github.com/fatih/color v1.18.0
 	github.com/manifoldco/promptui v0.9.0
+	golang.org/x/text v0.26.0
 )
 
 require (

@@ -18,3 +18,10 @@ func (p *Player) SetSpread(bid, ask float64) {
 	p.Bid = bid
 	p.Ask = ask
 }
+
+func (p *Player) CheckBankruptcy() bool {
+	if p.Cash < 0 {
+		return true
+	}
+	return false
+}
