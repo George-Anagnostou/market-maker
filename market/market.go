@@ -2,56 +2,68 @@ package market
 
 import (
 	"fmt"
-	"market-maker/order"
+	"market-maker/orderbook"
 	"market-maker/player"
 	"math/rand/v2"
+	"time"
 )
 
 type Market struct {
-	Orders []*order.Order
+	orderBook          *orderbook.OrderBook
+	generateOrdersFunc func() []*orderbook.Order // For testing
 }
 
 func NewMarket() *Market {
-	return &Market{}
+	return &Market{
+		orderBook: orderbook.NewOrderBook(),
+	}
 }
 
-func GenerateOrder() order.Order {
-	var orderType string
+func GenerateOrder() orderbook.Order {
+	var orderType orderbook.OrderType
 	if rand.IntN(2) == 0 {
-		orderType = "BUY"
+		orderType = orderbook.Buy
 	} else {
-		orderType = "SELL"
+		orderType = orderbook.Sell
 	}
 
 	price := 90 + rand.Float64()*20   // $90 - $110
 	quantity := 1 + rand.Float64()*10 // 1-10
 
-	return order.Order{
+	return orderbook.Order{
+		ID:        fmt.Sprintf("%d", time.Now().UnixNano()),
 		OrderType: orderType,
 		Price:     price,
 		Quantity:  quantity,
+		Timestamp: time.Now(),
 	}
 }
 
-func (m *Market) GenerateOrders() []*order.Order {
+func (m *Market) GenerateOrders() []*orderbook.Order {
+	if m.generateOrdersFunc != nil {
+		return m.generateOrdersFunc()
+	}
+
 	numOrders := rand.IntN(6) // 0-5 orders
-	orders := make([]*order.Order, 0, numOrders)
+	orders := make([]*orderbook.Order, 0, numOrders)
 	for range numOrders {
 		order := GenerateOrder()
+		m.orderBook.AddOrder(order)
 		orders = append(orders, &order)
 	}
-	m.Orders = orders
 	return orders
 }
 
 func (m *Market) ProcessOrders(p *player.Player) []string {
 	trades := []string{}
-	for _, ord := range m.Orders {
-		if ord.OrderType == "BUY" && ord.Price >= p.Ask {
+	orders := m.GenerateOrders()
+
+	for _, ord := range orders {
+		if ord.OrderType == orderbook.Buy && ord.Price >= p.Ask {
 			p.Cash += ord.Price * ord.Quantity
 			p.Inventory -= ord.Quantity
 			trades = append(trades, fmt.Sprintf("Sold %.2f at $%.2f", ord.Quantity, ord.Price))
-		} else if !(ord.OrderType == "BUY") && ord.Price <= p.Bid {
+		} else if ord.OrderType == orderbook.Sell && ord.Price <= p.Bid {
 			p.Cash -= ord.Price * float64(ord.Quantity)
 			p.Inventory += ord.Quantity
 			trades = append(trades, fmt.Sprintf("Bought %.2f at $%.2f", ord.Quantity, ord.Price))

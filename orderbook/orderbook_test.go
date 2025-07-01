@@ -104,7 +104,7 @@ func TestOrderBook(t *testing.T) {
 			ob := NewOrderBook()
 
 			for _, order := range tt.orders {
-				err := ob.AddOrder(order)
+				_, err := ob.AddOrder(order)
 				if contains(tt.wantRejects, order.ID) {
 					if err == nil {
 						t.Errorf("AddOrder() = nil, want error for order %s", order.ID)

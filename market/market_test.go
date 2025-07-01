@@ -1,16 +1,17 @@
 package market
 
 import (
-	"market-maker/order"
+	"market-maker/orderbook"
 	"market-maker/player"
 	"math/rand/v2"
 	"testing"
+	"time"
 )
 
 func TestGenerateOrders(t *testing.T) {
 	var seed1 uint64 = 100
 	var seed2 uint64 = 200
-	rand.New(rand.NewPCG(seed1, seed2)) // reproducable results
+	rand.New(rand.NewPCG(seed1, seed2)) // reproducible results
 
 	m := NewMarket()
 	orders := m.GenerateOrders()
@@ -21,8 +22,6 @@ func TestGenerateOrders(t *testing.T) {
 	}
 
 	// check order properties
-	// these properties should be better specified, but for now
-	// we will check that they are simply non-zero
 	for _, ord := range orders {
 		if ord.Price == 0 {
 			t.Errorf("Order.Price = %v, want non-zero", ord.Price)
@@ -30,20 +29,27 @@ func TestGenerateOrders(t *testing.T) {
 		if ord.Quantity == 0 {
 			t.Errorf("Order.Quantity = %v, want non-zero", ord.Quantity)
 		}
+		if ord.ID == "" {
+			t.Errorf("Order.ID is empty, want non-empty")
+		}
 	}
 }
 
 func TestProcessOrders(t *testing.T) {
 	p := player.NewPlayer()
-	m := NewMarket()
-
 	p.SetSpread(99, 101)
 
-	m.Orders = []*order.Order{
-		{OrderType: "BUY", Price: 102, Quantity: 5},  // should match
-		{OrderType: "SELL", Price: 98, Quantity: 3},  // should match
-		{OrderType: "BUY", Price: 100, Quantity: 2},  // no match
-		{OrderType: "SELL", Price: 100, Quantity: 4}, // no match
+	now := time.Now()
+	m := &Market{
+		orderBook: orderbook.NewOrderBook(),
+		generateOrdersFunc: func() []*orderbook.Order {
+			return []*orderbook.Order{
+				{ID: "1", OrderType: orderbook.Buy, Price: 102, Quantity: 5, Timestamp: now},
+				{ID: "2", OrderType: orderbook.Sell, Price: 98, Quantity: 3, Timestamp: now},
+				{ID: "3", OrderType: orderbook.Buy, Price: 100, Quantity: 2, Timestamp: now},
+				{ID: "4", OrderType: orderbook.Sell, Price: 100, Quantity: 4, Timestamp: now},
+			}
+		},
 	}
 
 	trades := m.ProcessOrders(p)
@@ -62,10 +68,6 @@ func TestProcessOrders(t *testing.T) {
 	}
 
 	// check player state
-	// sold 5 at $102 -> 5*102=$510, -5 inventory
-	// bought 3 at $98 -> -3*98=-@294, +3 inventory
-	// Net cash = 10,000 + 510 - 294 = $10,216
-	// Net inventory = 0 - 5 + 3 = -2
 	wantCash := 10216.0
 	wantInventory := -2.0
 	if p.Cash != wantCash {
