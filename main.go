@@ -7,27 +7,33 @@ import (
 	"market-maker/player"
 	"math/rand/v2"
 	"os"
+
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 const (
-	totalRounds = 10
+	totalRounds = 5
 )
 
 func main() {
 	rand.New(rand.NewPCG(100, 200)) // For reproducible results
 
+	printer := message.NewPrinter(language.English)
+
 	p := player.NewPlayer()
 	m := market.NewMarket()
 
 	fmt.Println("=== Market Maker Game ===")
-	fmt.Printf("Starting with $%.2f\n", p.Cash)
-	fmt.Printf("Playing %d rounds\n\n", totalRounds)
+	printer.Printf("Starting with $%.2f\n", p.Cash)
+	printer.Printf("Playing %d rounds\n\n", totalRounds)
 
 	for round := 1; round <= totalRounds; round++ {
-		fmt.Printf("=== Round %d/%d ===\n", round, totalRounds)
+		printer.Printf("=== Round %d/%d ===\n", round, totalRounds)
 
-		m.DisplayState()
 		p.GetSpread()
+		m.GenerateOrders()
+		m.DisplayState()
 
 		trades := m.ProcessOrders(p)
 		if len(trades) > 0 {

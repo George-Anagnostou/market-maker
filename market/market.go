@@ -56,24 +56,26 @@ func (m *Market) GenerateOrders() []*orderbook.Order {
 
 func (m *Market) ProcessOrders(p *player.Player) []string {
 	trades := []string{}
-	orders := m.GenerateOrders()
+	orders := append(m.orderBook.GetBids(), m.orderBook.GetAsks()...)
 
 	for _, ord := range orders {
 		if ord.OrderType == orderbook.Buy && ord.Price >= p.Ask {
 			p.Cash += ord.Price * ord.Quantity
 			p.Inventory -= ord.Quantity
-			trades = append(trades, fmt.Sprintf("Sold %.2f at $%.2f", ord.Quantity, ord.Price))
+			trades = append(trades, fmt.Sprintf("✅ Sold %.2f units @ $%.2f (Total: $%.2f)",
+				ord.Quantity, ord.Price, ord.Price*ord.Quantity))
 		} else if ord.OrderType == orderbook.Sell && ord.Price <= p.Bid {
 			p.Cash -= ord.Price * float64(ord.Quantity)
 			p.Inventory += ord.Quantity
-			trades = append(trades, fmt.Sprintf("Bought %.2f at $%.2f", ord.Quantity, ord.Price))
+			trades = append(trades, fmt.Sprintf("✅ Bought %.2f units @ $%.2f (Total: $%.2f)",
+				ord.Quantity, ord.Price, ord.Price*ord.Quantity))
 		}
 	}
 	return trades
 }
 
 func (m *Market) DisplayState() {
-	orders := m.GenerateOrders()
+	orders := append(m.orderBook.GetBids(), m.orderBook.GetAsks()...)
 	fmt.Printf("\nMarket Orders (%d):\n", len(orders))
 	for _, o := range orders {
 		fmt.Printf(" - %s %s @ $%.2f (Qty: %.2f)\n",
